@@ -28,6 +28,7 @@ import {
 import {
   addComboOffer,
   deleteComboOffer,
+  editComboOffer,
   getComboOffer,
 } from "../adminController/comboOffers.js";
 
@@ -62,6 +63,7 @@ router.get("/getAllPizzas", getAllPizzas);
 // admin combo
 router.post("/addComboOffer", addComboOffer);
 router.get("/getComboOffer", getComboOffer);
-router.delete("/deleteComboOffer/:comboId", deleteComboOffer);
+router.delete("/deleteComboOffer", deleteComboOffer);
+router.put("/editComboOffer", editComboOffer);
 
 export default router;
