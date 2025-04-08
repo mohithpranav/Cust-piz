@@ -31,6 +31,7 @@ import {
   editComboOffer,
   getComboOffer,
 } from "../adminController/comboOffers.js";
+import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -61,9 +62,9 @@ router.delete("/deletePizza", deletePizza);
 router.get("/getAllPizzas", getAllPizzas);
 
 // admin combo
-router.post("/addComboOffer", addComboOffer);
+router.post("/addComboOffer", upload.single("image"), addComboOffer);
 router.get("/getComboOffer", getComboOffer);
 router.delete("/deleteComboOffer", deleteComboOffer);
-router.put("/editComboOffer", editComboOffer);
+router.put("/editComboOffer", upload.single("image"), editComboOffer);
 
 export default router;

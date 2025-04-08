@@ -55,6 +55,7 @@ model ComboOffers {
   description    String
   imageUrl       String
   discount      Decimal
+  price          Decimal
   createdAt      DateTime @default(now())
   pizzas         ComboPizza[]   
 }
