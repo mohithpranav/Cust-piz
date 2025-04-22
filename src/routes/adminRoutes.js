@@ -31,9 +31,13 @@ import {
   editComboOffer,
   getComboOffer,
 } from "../adminController/comboOffers.js";
-import { upload } from "../middleware/upload.js";
+import serveImmg from "../consumerController/imageController.js";
+import { convertToPng, upload } from "../middleware/upload.js";
 
 const router = express.Router();
+
+// Serve images
+router.get("/images/:imageName", serveImmg);
 
 // admin topping
 router.post("/addTopping", addTopping);
@@ -56,15 +60,25 @@ router.delete("/deleteCategory", deleteCategory);
 router.get("/getCategories", getCategories);
 
 // admin pizza
-router.post("/addPizza", addPizza);
-router.put("/updatePizza", updatePizza);
+router.post("/addPizza", upload.single("image"), convertToPng, addPizza);
+router.put("/updatePizza", upload.single("image"), convertToPng, updatePizza);
 router.delete("/deletePizza", deletePizza);
 router.get("/getAllPizzas", getAllPizzas);
 
 // admin combo
-router.post("/addComboOffer", upload.single("image"), addComboOffer);
+router.post(
+  "/addComboOffer",
+  upload.single("image"),
+  convertToPng,
+  addComboOffer
+);
 router.get("/getComboOffer", getComboOffer);
 router.delete("/deleteComboOffer", deleteComboOffer);
-router.put("/editComboOffer", upload.single("image"), editComboOffer);
+router.put(
+  "/editComboOffer",
+  upload.single("image"),
+  convertToPng,
+  editComboOffer
+);
 
 export default router;

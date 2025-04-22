@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { deleteFile } from "../middleware/upload.js";
+import { deleteFile, renameFileToMatchId } from "../utils/fileUtils.js";
 import { calculateComboPrice } from "../utils/calculateComboPrice.js";
 
 const prisma = new PrismaClient();
@@ -8,9 +8,9 @@ const prisma = new PrismaClient();
 export const addComboOffer = async (req, res) => {
   try {
     const { name, description, discount, pizzas } = req.body;
-    const imageUrl = req.file ? req.file.filename : "dummy.png";
+    const tempImageUrl = req.file ? req.file.filename : "dummy.png";
 
-    if (!imageUrl) {
+    if (!tempImageUrl) {
       return res.status(400).json({ error: "Image is required" });
     }
 
@@ -40,9 +40,25 @@ export const addComboOffer = async (req, res) => {
           description,
           discount,
           price: finalPrice,
-          imageUrl,
+          imageUrl: tempImageUrl,
         },
       });
+
+      // Rename the file to match the combo ID
+      const newImageUrl = renameFileToMatchId(
+        tempImageUrl,
+        newCombo.id,
+        "combo"
+      );
+
+      // Update the combo with the new image URL if renaming was successful
+      if (newImageUrl) {
+        await tx.comboOffers.update({
+          where: { id: newCombo.id },
+          data: { imageUrl: newImageUrl },
+        });
+        newCombo.imageUrl = newImageUrl;
+      }
 
       const comboPizzas = parsedPizzas.map((pizza) => ({
         comboId: newCombo.id,
@@ -109,7 +125,7 @@ export const editComboOffer = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, discount, pizzas } = req.body;
-    const imageUrl = req.file ? req.file.filename : null;
+    const tempImageUrl = req.file ? req.file.filename : null;
 
     const existingCombo = await prisma.comboOffers.findUnique({
       where: { id: Number(id) },
@@ -120,29 +136,68 @@ export const editComboOffer = async (req, res) => {
       return res.status(404).json({ error: "Combo Offer not found" });
     }
 
-    if (imageUrl && existingCombo.imageUrl !== "dummy.png") {
-      deleteFile(existingCombo.imageUrl);
+    // Parse the pizzas string if it's a string
+    const parsedPizzas =
+      typeof pizzas === "string" ? JSON.parse(pizzas) : pizzas;
+
+    if (!Array.isArray(parsedPizzas)) {
+      return res.status(400).json({ error: "Pizzas must be an array" });
     }
 
-    const finalPrice = await calculateComboPrice(pizzas, discount);
+    // Validate each pizza has required fields
+    for (const pizza of parsedPizzas) {
+      if (!pizza.pizzaId || !pizza.quantity || !pizza.size) {
+        return res.status(400).json({
+          error: "Each pizza must have pizzaId, quantity, and size",
+        });
+      }
+    }
+
+    const finalPrice = await calculateComboPrice(parsedPizzas, discount);
 
     const updatedCombo = await prisma.$transaction(async (tx) => {
-      await tx.comboOffers.update({
+      // If a new image was uploaded, delete the old one
+      if (tempImageUrl && existingCombo.imageUrl !== "dummy.png") {
+        deleteFile(existingCombo.imageUrl);
+      }
+
+      // Update the combo with the new data
+      const combo = await tx.comboOffers.update({
         where: { id: Number(id) },
         data: {
           name,
           description,
           discount,
           price: finalPrice,
-          imageUrl: imageUrl || existingCombo.imageUrl,
+          imageUrl: tempImageUrl || existingCombo.imageUrl,
         },
       });
 
+      // If a new image was uploaded, rename it to match the combo ID
+      if (tempImageUrl) {
+        const newImageUrl = renameFileToMatchId(
+          tempImageUrl,
+          combo.id,
+          "combo"
+        );
+
+        // Update the combo with the new image URL if renaming was successful
+        if (newImageUrl) {
+          await tx.comboOffers.update({
+            where: { id: combo.id },
+            data: { imageUrl: newImageUrl },
+          });
+          combo.imageUrl = newImageUrl;
+        }
+      }
+
+      // Delete existing combo pizzas
       await tx.comboPizza.deleteMany({
         where: { comboId: Number(id) },
       });
 
-      const comboPizzas = pizzas.map((pizza) => ({
+      // Create new combo pizzas
+      const comboPizzas = parsedPizzas.map((pizza) => ({
         comboId: Number(id),
         pizzaId: pizza.pizzaId,
         quantity: pizza.quantity,
@@ -152,19 +207,16 @@ export const editComboOffer = async (req, res) => {
       await tx.comboPizza.createMany({ data: comboPizzas });
 
       return {
-        id: Number(id),
-        name,
-        description,
-        discount,
-        price: finalPrice,
-        imageUrl: `/uploads/${imageUrl || existingCombo.imageUrl}`,
-        pizzas,
+        ...combo,
+        imageUrl: `/uploads/${combo.imageUrl}`,
+        pizzas: parsedPizzas,
       };
     });
 
     res.status(200).json({ message: "Combo Offer Updated", updatedCombo });
   } catch (error) {
     if (req.file) deleteFile(req.file.filename);
+    console.error("Error in editComboOffer:", error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -178,13 +230,14 @@ export const deleteComboOffer = async (req, res) => {
     }
 
     const existingCombo = await prisma.comboOffers.findUnique({
-      where: { id: comboId }, // No Number()
+      where: { id: comboId },
     });
 
     if (!existingCombo) {
       return res.status(404).json({ error: "Combo Offer not found" });
     }
 
+    // Delete the image file if it's not the default
     if (existingCombo.imageUrl !== "dummy.png") {
       deleteFile(existingCombo.imageUrl);
     }
@@ -201,6 +254,7 @@ export const deleteComboOffer = async (req, res) => {
 
     res.status(200).json({ message: "Combo Offer Deleted" });
   } catch (error) {
+    console.error("Error in deleteComboOffer:", error);
     res.status(400).json({ error: error.message });
   }
 };

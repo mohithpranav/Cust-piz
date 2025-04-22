@@ -23,6 +23,7 @@ model User {
   orders        Order[]
   points        Decimal?  @default(0)
   created_at    DateTime @default(now())
+  cart         Cart[]
 }
 
 model Admin {
@@ -39,7 +40,7 @@ model Pizza {
   name          String
   description   String?
   imageUrl      String?
-  sizes         Json
+  sizes         Json    // {"small": 10, "medium": 15, "large": 20}
   categoryId    String
   category      Category @relation(fields: [categoryId], references: [id] )  
   defaultToppings DefaultToppings[] 
@@ -47,6 +48,7 @@ model Pizza {
   createdAt    DateTime @default(now())
   orderItems    OrderItem[]
   comboPizzas   ComboPizza[]
+  cartItems     CartItem[]
 }
 
 model ComboOffers {
@@ -70,6 +72,51 @@ model ComboPizza {
   pizza         Pizza       @relation(fields: [pizzaId], references: [id], onDelete: Cascade)
 }
 
+model Cart {
+  id            String   @id @default(cuid())
+  userId        String?  
+  sessionId    String?   @unique
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalAmount   Decimal  @default(0)
+  cartItems     CartItem[]
+  createdAt     DateTime @default(now())
+}
+
+model CartItem {
+   id           String   @id @default(cuid())
+   cartId       String
+   cart         Cart       @relation(fields: [cartId], references: [id], onDelete: Cascade)
+   pizzaId      String
+   pizza        Pizza    @relation(fields: [pizzaId], references: [id], onDelete: Cascade)
+   size         String
+   quantity     Int
+   basePrice    Decimal
+   finalPrice    Decimal
+   cartToppings CartToppings[]     
+   cartIngredients CartIngredients[] 
+   createdAt    DateTime @default(now())
+}
+
+model CartToppings {
+  id           String   @id @default(cuid())
+  cartItemId    String
+  cartItem      CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+  toppingId     String   
+  topping      ToppingsList @relation(fields: [toppingId], references: [id], onDelete: Cascade) 
+  defaultQuantity Int  
+  addedQuantity   Int  
+}
+
+model CartIngredients  {
+  id                     String   @id @default(cuid())
+  cartItemId            String
+  cartItem              CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+  ingredientId          String 
+  ingredient            IngredientsList @relation(fields: [ingredientId], references: [id], onDelete: Cascade) 
+  defaultQuantity       Int
+  addedQuantity         Int
+}
+
 model Order {
   id            String   @id @default(cuid())
   userId        String
@@ -84,14 +131,13 @@ model OrderItem {
   id                  String   @id @default(cuid())
   orderId             String
   order               Order    @relation(fields: [orderId], references: [id])
+  pizzaId             String
+  pizza               Pizza    @relation(fields: [pizzaId], references: [id])
   quantity            Int      //no.of pizzas
   size                String
   price               Decimal   
   orderToppings       OrderToppings[]   //user access
   orderIngredients    OrderIngredients[]  //user access
-  pizzaId             String
-  pizza               Pizza    @relation(fields: [pizzaId], references: [id])
-
 }
 
 model OrderToppings  {
@@ -104,7 +150,6 @@ model OrderToppings  {
   oderItemId    String
   oderItem      OrderItem @relation(fields: [oderItemId], references: [id])
 }
-
 
 model OrderIngredients  {
   id                     String   @id @default(cuid())
@@ -146,7 +191,9 @@ model ToppingsList {
   name          String
   price         Decimal
   status        Boolean  @default(true)
-  defaultToppings DefaultToppings[] //added now
+  defaultToppings DefaultToppings[]
+  cartToppings  CartToppings[] 
+
 }
 
 model IngredientsList {
@@ -154,7 +201,8 @@ model IngredientsList {
   name          String
   price         Decimal
   status        Boolean  @default(true)
-  defaultIngredients DefaultIngredients[] //added now
+  defaultIngredients DefaultIngredients[] 
+  cartIngredients CartIngredients[]
 }
 
 model Category {
