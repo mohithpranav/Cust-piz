@@ -1,8 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 export const calculateComboPrice = async (pizzas, discount) => {
-  let totalPrice = 0;
+  let totalPrice = new Prisma.Decimal(0);
 
   for (const pizza of pizzas) {
     if (!pizza.pizzaId) {
@@ -17,12 +17,25 @@ export const calculateComboPrice = async (pizzas, discount) => {
       throw new Error(`Pizza with id ${pizza.pizzaId} does not exist`);
     }
 
-    const sizePrice = existingPizza.sizes[pizza.size.toUpperCase()];
-    totalPrice += sizePrice * pizza.quantity;
+    // Parse the sizes JSON string
+    const sizes = JSON.parse(existingPizza.sizes);
+    const sizePrice = sizes[pizza.size.toUpperCase()];
+
+    if (sizePrice === undefined) {
+      throw new Error(
+        `Size ${pizza.size} not available for pizza ${existingPizza.name}`
+      );
+    }
+
+    // Add to total price using Decimal for precision
+    totalPrice = totalPrice.add(
+      new Prisma.Decimal(sizePrice).times(pizza.quantity)
+    );
   }
 
-  const discountAmount = (totalPrice * discount) / 100;
-  const finalPrice = totalPrice - discountAmount;
+  // Calculate discount
+  const discountAmount = totalPrice.times(discount).dividedBy(100);
+  const finalPrice = totalPrice.minus(discountAmount);
 
   return finalPrice;
 };
