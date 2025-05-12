@@ -290,3 +290,20 @@ export const deleteComboOffer = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const getComboById = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const combo = await prisma.comboOffers.findUnique({
+      where: { id: id },
+    });
+
+    if (!combo) {
+      return res.status(404).json({ error: "Combo Offer not found" });
+    }
+    res.status(200).json(combo);
+  } catch (error) {
+    console.error("Error in getComboById:", error);
+    res.status(400).json({ error: error.message });
+  }
+};

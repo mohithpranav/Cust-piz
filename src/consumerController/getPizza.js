@@ -95,10 +95,22 @@ const getAllIngredients = async (req, res) => {
   }
 };
 
+const getAllPizzaList = async (req, res) => {
+  try {
+    const pizzas = await prisma.pizza.findMany();
+    return res
+      .status(200)
+      .json({ message: "Pizzas fetched successfully", data: pizzas });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export {
   getPizzabyCategory,
   getPizzaById,
   getAllCategories,
   getAllToppings,
   getAllIngredients,
+  getAllPizzaList,
 };
